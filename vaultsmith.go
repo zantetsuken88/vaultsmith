@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/starlingbank/vaultsmith/internal"
+	"strings"
 )
 
 var flags = flag.NewFlagSet("Vaultsmith", flag.ExitOnError)
@@ -29,7 +30,15 @@ func init() {
 			"and VAULT_TOKEN are set.\n")
 	}
 
-	flags.Parse(os.Args[1:])
+	// Avoid parsing flags passed on running `go test`
+	var args []string
+	for _, s := range os.Args[1:]{
+		if !strings.HasPrefix(s, "-test.") {
+			args = append(args, s)
+		}
+	}
+
+	flags.Parse(args)
 }
 
 func main() {
