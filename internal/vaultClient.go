@@ -1,9 +1,9 @@
 package internal
 
 import (
-	"log"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 
 	vaultApi "github.com/hashicorp/vault/api"
@@ -16,7 +16,7 @@ type SecretsClient interface {
 }
 
 type VaultClient struct {
-	client *vaultApi.Client
+	Client     *vaultApi.Client
 	awsHandler *credAws.CLIHandler
 }
 
@@ -42,13 +42,13 @@ func NewVaultClient() (*VaultClient, error) {
 
 func (c *VaultClient) Authenticate(role string) error {
 
-	if c.client.Token() != "" {
+	if c.Client.Token() != "" {
 		// Already authenticated. Supposedly.
 		log.Println("Already authenticated by environment variable")
 		return nil
 	}
 
-	secret, err := c.awsHandler.Auth(c.client, map[string]string{"role": role})
+	secret, err := c.awsHandler.Auth(c.Client, map[string]string{"role": role})
 	if err != nil {
 		log.Printf("Auth error: %s", err)
 		return err
@@ -58,9 +58,9 @@ func (c *VaultClient) Authenticate(role string) error {
 		return errors.New("no secret returned from Vault")
 	}
 
-	c.client.SetToken(secret.Auth.ClientToken)
+	c.Client.SetToken(secret.Auth.ClientToken)
 
-	secret, err = c.client.Auth().Token().LookupSelf()
+	secret, err = c.Client.Auth().Token().LookupSelf()
 	if err != nil {
 		return errors.New(fmt.Sprintf("no token found in Vault client (%s)", err))
 	}
@@ -69,5 +69,5 @@ func (c *VaultClient) Authenticate(role string) error {
 }
 
 func (c *VaultClient) Read(secret string) (*vaultApi.Secret, error) {
-	return c.client.Logical().Read(secret)
+	return c.Client.Logical().Read(secret)
 }

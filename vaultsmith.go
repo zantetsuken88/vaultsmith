@@ -1,13 +1,16 @@
 package main
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"os"
 
-	"github.com/starlingbank/vaultsmith/internal"
 	"strings"
+
+	"github.com/starlingbank/vaultsmith/internal"
 )
 
 var flags = flag.NewFlagSet("Vaultsmith", flag.ExitOnError)
@@ -32,7 +35,7 @@ func init() {
 
 	// Avoid parsing flags passed on running `go test`
 	var args []string
-	for _, s := range os.Args[1:]{
+	for _, s := range os.Args[1:] {
 		if !strings.HasPrefix(s, "-test.") {
 			args = append(args, s)
 		}
@@ -67,11 +70,36 @@ func NewVaultsmithConfig() (*VaultsmithConfig, error) {
 	}, nil
 }
 
-func Run(client internal.SecretsClient , config *VaultsmithConfig) error {
-	err := client.Authenticate(config.vaultRole)
+func Run(c *internal.VaultClient, config *VaultsmithConfig) error {
+	err := c.Authenticate(config.vaultRole)
 	if err != nil {
 		return fmt.Errorf("Failed authenticating with Vault: %s", err)
 	}
+	path := "./example/sys/auth/approle.json"
+	file, err := os.Open(path)
+	if err != nil {
+		log.Fatal(fmt.Sprintf("Error opening policy file: %s", err))
+		return nil
+	}
+	defer file.Close()
+
+	var buf bytes.Buffer
+	_, err = io.Copy(&buf, file)
+
+	if err != nil {
+		log.Fatal(fmt.Sprintf("Error reading policy: %s", err))
+	}
+
+	policy := buf.String()
+
+	fmt.Println(policy)
+
+	err = c.Client.Sys().PutPolicy("testpolicy", policy)
+
+	if err != nil {
+		log.Fatal(fmt.Sprintf("Error writing policy: %s", err))
+	}
+	log.Println("Success")
 	return nil
 
 }
