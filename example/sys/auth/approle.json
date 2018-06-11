@@ -1,0 +1,4 @@
+{
+  "type": "approle",
+  "description": "Login with Approle backend"
+}

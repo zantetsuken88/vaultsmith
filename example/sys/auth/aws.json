@@ -1,0 +1,9 @@
+{
+  "config": {
+    "default_lease_ttl": 0,
+    "max_lease_ttl": 0
+  },
+  "description": "AWS Auth Backend",
+  "local": false,
+  "type": "aws"
+},

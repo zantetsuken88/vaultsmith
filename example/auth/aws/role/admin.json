@@ -1,0 +1,20 @@
+{
+		"auth_type": "iam",
+		"bound_account_id": "",
+		"bound_ami_id": "",
+		"bound_iam_instance_profile_arn": "",
+		"bound_iam_principal_arn": "",
+		"bound_iam_principal_id": "",
+		"bound_iam_role_arn": "",
+		"bound_region": "",
+		"bound_subnet_id": "",
+		"bound_vpc_id": "",
+		"inferred_aws_region": "",
+		"inferred_entity_type": "",
+		"max_ttl": "1h",
+		"policies": [
+			"write_secrets",
+			"read_secrets_mounts"
+		],
+		"resolve_aws_unique_ids": true
+}

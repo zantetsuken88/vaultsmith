@@ -1,0 +1,3 @@
+{
+  "rules":"path \"auth/aws/role/provisioner\" {\n  capabilities = [\"deny\"]\n}"
+}

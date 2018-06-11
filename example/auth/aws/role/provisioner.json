@@ -1,0 +1,22 @@
+{
+		"auth_type": "iam",
+		"bound_account_id": "",
+		"bound_ami_id": "",
+		"bound_iam_instance_profile_arn": "",
+		"bound_iam_principal_arn": "",
+		"bound_iam_principal_id": "",
+		"bound_iam_role_arn": "",
+		"bound_region": "",
+		"bound_subnet_id": "",
+		"bound_vpc_id": "",
+		"inferred_aws_region": "",
+		"inferred_entity_type": "",
+		"max_ttl": "1h",
+		"policies": [
+			"write_policies",
+			"write_roles",
+			"write_approle",
+			"deny_provisioner_role_changes"
+		],
+		"resolve_aws_unique_ids": true
+}

@@ -1,0 +1,12 @@
+{
+	"auth_type": "iam",
+	"bound_iam_instance_profile_arn": "",
+	"max_ttl": "1h",
+	"inferred_entity_type": "ec2_instance",
+	"inferred_aws_region": "",
+	"policies": [
+		"",
+		"read_common_secrets"
+	],
+	"resolve_aws_unique_ids": true
+}

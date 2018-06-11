@@ -1,0 +1,3 @@
+{
+  "rules":"path \"auth/approle/*\" {\n  capabilities = [\"create\", \"read\", \"update\", \"delete\", \"list\"]\n}"
+}

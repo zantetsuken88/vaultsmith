@@ -1,0 +1,6 @@
+{
+	"endpoint": "",
+	"iam_endpoint": "",
+	"iam_server_id_header_value": "",
+	"sts_endpoint": ""
+}

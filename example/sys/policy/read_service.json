@@ -1,0 +1,3 @@
+{
+  "rules":"path \"secret/$service_name/*\" {\n  capabilities = [\"read\", \"list\"]\n}"
+}
