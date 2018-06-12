@@ -6,7 +6,6 @@ import (
 
 	"github.com/stretchr/testify/suite"
 	"github.com/stretchr/testify/mock"
-	"github.com/hashicorp/vault/api"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -26,34 +25,20 @@ func (suite *VaultsmithTestSuite) SetupTest() {
 }
 
 func (suite *VaultsmithTestSuite) TearDownTest() {
-//	os.Remove(suite.config.outputFile)
+	//	os.Remove(suite.config.outputFile)
 }
-
-
-func (m *mockVaultClient) Read(path string) (*api.Secret, error) {
-	m.Called(path)
-	data := make(map[string]interface{})
-	data["key"] = "value1"
-	s := api.Secret{
-		Data: data,
-	}
-
-	if path == "secret/FATAL" {
-		return nil, fmt.Errorf("Interaction with vault failed!!")
-	}
-
-	return &s, nil
-}
-
 
 func (m *mockVaultClient) Authenticate(role string) error {
 	m.Called(role)
-
 	if role == "ConnectionRefused" {
 		return fmt.Errorf("dial tcp [::1]:8200: getsockopt: connection refused")
 	} else if role == "InvalidRole" {
 		return fmt.Errorf("entry for role InvalidRole not found")
 	}
+	return nil
+}
+
+func (c *mockVaultClient) PutPolicy(name string, data string) error {
 	return nil
 }
 
@@ -73,7 +58,6 @@ func (suite *VaultsmithTestSuite) TestRunWhenRoleIsInvalid() {
 	mockClient := new(mockVaultClient)
 	suite.config.vaultRole = "InvalidRole"
 	mockClient.On("Authenticate", suite.config.vaultRole)
-
 
 	err := Run(mockClient, suite.config)
 	assert.Error(suite.T(), err)

@@ -27,7 +27,7 @@ func init() {
 		fmt.Printf("Usage of vaultsmith:\n")
 		flags.PrintDefaults()
 		fmt.Println("\nVault authentication is handled by environment variables (the same " +
-			"ones as the Vault Client, as vaultsmith uses the same code). So ensure VAULT_ADDR " +
+			"ones as the Vault client, as vaultsmith uses the same code). So ensure VAULT_ADDR " +
 			"and VAULT_TOKEN are set.\n")
 	}
 
@@ -68,7 +68,7 @@ func NewVaultsmithConfig() (*VaultsmithConfig, error) {
 	}, nil
 }
 
-func Run(c *internal.VaultClient, config *VaultsmithConfig) error {
+func Run(c internal.VaultsmithClient, config *VaultsmithConfig) error {
 	err := c.Authenticate(config.vaultRole)
 	if err != nil {
 		return fmt.Errorf("Failed authenticating with Vault: %s", err)
@@ -77,7 +77,7 @@ func Run(c *internal.VaultClient, config *VaultsmithConfig) error {
 	if err != nil {
 		log.Fatalf("failed to read file: %s", err)
 	}
-	err = c.Client.Sys().PutPolicy("testpolicy", policy)
+	c.PutPolicy("testpolicy", policy)
 
 	if err != nil {
 		log.Fatal(fmt.Sprintf("Error writing policy: %s", err))
