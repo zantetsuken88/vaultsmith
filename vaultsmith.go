@@ -1,10 +1,8 @@
 package main
 
 import (
-	"bytes"
 	"flag"
 	"fmt"
-	"io"
 	"log"
 	"os"
 
@@ -75,25 +73,10 @@ func Run(c *internal.VaultClient, config *VaultsmithConfig) error {
 	if err != nil {
 		return fmt.Errorf("Failed authenticating with Vault: %s", err)
 	}
-	path := "./example/sys/auth/approle.json"
-	file, err := os.Open(path)
+	policy, err := internal.ReadFile("example/sys/auth/approle.json")
 	if err != nil {
-		log.Fatal(fmt.Sprintf("Error opening policy file: %s", err))
-		return nil
+		log.Fatalf("failed to read file: %s", err)
 	}
-	defer file.Close()
-
-	var buf bytes.Buffer
-	_, err = io.Copy(&buf, file)
-
-	if err != nil {
-		log.Fatal(fmt.Sprintf("Error reading policy: %s", err))
-	}
-
-	policy := buf.String()
-
-	fmt.Println(policy)
-
 	err = c.Client.Sys().PutPolicy("testpolicy", policy)
 
 	if err != nil {
