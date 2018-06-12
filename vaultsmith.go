@@ -74,11 +74,8 @@ func Run(c internal.VaultsmithClient, config *VaultsmithConfig) error {
 		return fmt.Errorf("Failed authenticating with Vault: %s", err)
 	}
 	policy, err := internal.ReadFile("example/sys/auth/approle.json")
-	if err != nil {
-		log.Fatalf("failed to read file: %s", err)
-	}
-	c.PutPolicy("testpolicy", policy)
-
+	c.PutPolicy("approle", policy)
+	//internal.PutPoliciesFromDir("./example")
 	if err != nil {
 		log.Fatal(fmt.Sprintf("Error writing policy: %s", err))
 	}

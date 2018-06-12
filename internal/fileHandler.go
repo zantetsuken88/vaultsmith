@@ -6,6 +6,8 @@ import (
 	"bytes"
 	"io"
 	"log"
+	"path/filepath"
+	"strings"
 )
 
 func ReadFile(path string) (string, error) {
@@ -27,4 +29,20 @@ func ReadFile(path string) (string, error) {
 
 	return data, nil
 
+}
+
+func walkFile(path string, f os.FileInfo, err error) error {
+	if ! f.IsDir() {
+		dir, file := filepath.Split(path)
+		policyPath := strings.Join(strings.Split(dir, "/")[1:], "/")
+		fmt.Println(file)
+		fmt.Println(policyPath)
+	}
+
+	return nil
+}
+
+func PutPoliciesFromDir(path string) error {
+	err := filepath.Walk(path, walkFile)
+	return err
 }
