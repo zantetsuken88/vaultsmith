@@ -71,7 +71,7 @@ func NewVaultsmithConfig() (*VaultsmithConfig, error) {
 func Run(c internal.VaultsmithClient, config *VaultsmithConfig) error {
 	err := c.Authenticate(config.vaultRole)
 	if err != nil {
-		return fmt.Errorf("Failed authenticating with Vault: %s", err)
+		return fmt.Errorf("failed authenticating with Vault: %s", err)
 	}
 	policy, err := internal.ReadFile("example/sys/auth/approle.json")
 	c.PutPolicy("approle", policy)
