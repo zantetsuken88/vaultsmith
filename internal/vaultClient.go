@@ -8,6 +8,7 @@ import (
 
 	vaultApi "github.com/hashicorp/vault/api"
 	credAws "github.com/hashicorp/vault/builtin/credential/aws"
+	"crypto/tls"
 )
 
 type VaultsmithClient interface {
@@ -23,9 +24,19 @@ type VaultClient struct {
 func NewVaultClient() (*VaultClient, error) {
 
 	config := vaultApi.Config{
-		HttpClient: &http.Client{Transport: &http.Transport{}},
+		HttpClient: &http.Client{
+			Transport: &http.Transport{
+				// lack of TLSClientConfig can cause SIGSEGV on config.ReadEnvironment() below
+				// when VAULT_SKIP_VERIFY is true
+				TLSClientConfig: &tls.Config{},
+			},
+		},
 	}
-	config.ReadEnvironment()
+
+	err := config.ReadEnvironment()
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	client, err := vaultApi.NewClient(&config)
 	if err != nil {
