@@ -32,6 +32,9 @@ func ReadFile(path string) (string, error) {
 }
 
 func walkFile(path string, f os.FileInfo, err error) error {
+	if err != nil {
+		return fmt.Errorf("error reading %s: %s", path, err)
+	}
 	if ! f.IsDir() {
 		dir, file := filepath.Split(path)
 		policyPath := strings.Join(strings.Split(dir, "/")[1:], "/")
