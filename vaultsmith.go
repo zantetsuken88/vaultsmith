@@ -9,6 +9,8 @@ import (
 	"strings"
 
 	"github.com/starlingbank/vaultsmith/internal"
+	vaultApi "github.com/hashicorp/vault/api"
+	"encoding/json"
 )
 
 var flags = flag.NewFlagSet("Vaultsmith", flag.ExitOnError)
@@ -73,8 +75,21 @@ func Run(c internal.VaultsmithClient, config *VaultsmithConfig) error {
 	if err != nil {
 		return fmt.Errorf("failed authenticating with Vault: %s", err)
 	}
-	policy, err := internal.ReadFile("example/sys/auth/approle.json")
-	c.PutPolicy("approle", policy)
+
+	s, err := internal.ReadFile("example/sys/auth/approle.json")
+	log.Println(s)
+
+	approleOpts := vaultApi.EnableAuthOptions{}
+	err = json.Unmarshal([]byte(s), &approleOpts)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	l, e := c.ListAuth()
+	err = c.EnableAuth("approle", &approleOpts)
+	if err != nil {
+		log.Fatal(err)
+	}
 	//internal.PutPoliciesFromDir("./example")
 	if err != nil {
 		log.Fatal(fmt.Sprintf("Error writing policy: %s", err))

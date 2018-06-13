@@ -11,9 +11,23 @@ import (
 	"crypto/tls"
 )
 
+
+/*
+With the exception of Authenticate, most functions in this file are simple pass-through calls
+to the vault API, which don't do anything special. They should however, be idempotent, and thus
+not return an error if that error indicates that the operation has already been done, e.g.
+"already exists" type errors.
+
+If there is a possibility that the configuration might be different, they should delete and then
+put.
+*/
+
+
 type VaultsmithClient interface {
 	Authenticate(string) error
 	PutPolicy(string, string) error
+	EnableAuth(path string, options *vaultApi.EnableAuthOptions) error
+	ListAuth() (map[string]*vaultApi.AuthMount, error)
 }
 
 type VaultClient struct {
@@ -79,6 +93,26 @@ func (c *VaultClient) Authenticate(role string) error {
 	return nil
 }
 
+
 func (c *VaultClient) PutPolicy(name string, data string) error {
 	return c.client.Sys().PutPolicy(name, data)
+}
+
+func (c *VaultClient) EnableAuth(path string, options *vaultApi.EnableAuthOptions) error {
+	err := c.client.Sys().EnableAuthWithOptions(path, options)
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+	return nil
+}
+
+func (c *VaultClient) ListAuth() (map[string]*vaultApi.AuthMount, error) {
+	data, err := c.client.Sys().ListAuth()
+	if err != nil {
+		log.Println(err)
+		return nil, err
+	}
+	log.Println(data)
+	return data, nil
 }
