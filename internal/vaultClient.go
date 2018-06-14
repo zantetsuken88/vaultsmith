@@ -93,7 +93,6 @@ func (c *VaultClient) Authenticate(role string) error {
 	return nil
 }
 
-
 func (c *VaultClient) PutPolicy(name string, data string) error {
 	return c.client.Sys().PutPolicy(name, data)
 }
