@@ -11,6 +11,7 @@ import (
 	"reflect"
 	"strconv"
 	vaultApi "github.com/hashicorp/vault/api"
+	"encoding/json"
 )
 
 type FileHandler struct {
@@ -72,6 +73,20 @@ func (fh *FileHandler) walkFile(path string, f os.FileInfo, err error) error {
 	dir, file := filepath.Split(path)
 	policyPath := strings.Join(strings.Split(dir, "/")[1:], "/")
 	fmt.Printf("path: %s, file: %s\n", policyPath, file)
+
+	fileContents, err := fh.readFile(path)
+	var enableOpts vaultApi.EnableAuthOptions
+	err = json.Unmarshal([]byte(fileContents), &enableOpts)
+	if err != nil {
+		return err
+	}
+
+	if strings.HasPrefix(policyPath, "sys/auth") {
+		log.Printf("handling %s\n", dir)
+		fh.EnsureAuth(strings.Split(file, ".")[0], enableOpts)
+	} else {
+		log.Printf("%s not handled yet\n", dir)
+	}
 
 	return nil
 }
