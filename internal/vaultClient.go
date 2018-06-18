@@ -25,9 +25,10 @@ put.
 
 type VaultsmithClient interface {
 	Authenticate(string) error
-	PutPolicy(string, string) error
+	DisableAuth() error
 	EnableAuth(path string, options *vaultApi.EnableAuthOptions) error
 	ListAuth() (map[string]*vaultApi.AuthMount, error)
+	PutPolicy(string, string) error
 }
 
 type VaultClient struct {
@@ -98,20 +99,13 @@ func (c *VaultClient) PutPolicy(name string, data string) error {
 }
 
 func (c *VaultClient) EnableAuth(path string, options *vaultApi.EnableAuthOptions) error {
-	err := c.client.Sys().EnableAuthWithOptions(path, options)
-	if err != nil {
-		log.Println(err)
-		return err
-	}
-	return nil
+	return c.client.Sys().EnableAuthWithOptions(path, options)
 }
 
 func (c *VaultClient) ListAuth() (map[string]*vaultApi.AuthMount, error) {
-	data, err := c.client.Sys().ListAuth()
-	if err != nil {
-		log.Println(err)
-		return nil, err
-	}
-	log.Println(data)
-	return data, nil
+	return c.client.Sys().ListAuth()
+}
+
+func (c *VaultClient) DisableAuth(path string) error {
+	return c.client.Sys().DisableAuth(path)
 }
