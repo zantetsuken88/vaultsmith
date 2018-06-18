@@ -25,7 +25,7 @@ func (suite *FileHandlerTestSuite) TestReadFile() {
 	file, _ := ioutil.TempFile(".", "test-FileHandler-")
 	_ = ioutil.WriteFile(file.Name(), []byte("foo"), os.FileMode(int(0664)))
 	defer os.Remove(file.Name())
-	data, err := ReadFile(file.Name())
+	data, err := readFile(file.Name())
 	if err != nil {
 		log.Fatal(err)
 	}

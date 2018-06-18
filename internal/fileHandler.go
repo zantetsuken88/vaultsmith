@@ -8,12 +8,39 @@ import (
 	"log"
 	"path/filepath"
 	"strings"
-	"encoding/json"
-	vaultApi "github.com/hashicorp/vault/api"
 	"reflect"
+	"strconv"
+	vaultApi "github.com/hashicorp/vault/api"
 )
 
-func ReadFile(path string) (string, error) {
+type FileHandler struct {
+	client 				VaultsmithClient
+	rootPath 			string
+	liveAuthMap 		*map[string]*vaultApi.AuthMount
+	configuredAuthMap 	*map[string]*vaultApi.AuthMount
+}
+
+func NewFileHandler(c VaultsmithClient, rootPath string) (*FileHandler, error) {
+	// Build a map of currently active auth methods, so walkFile() can reference it
+	liveAuthMap, err := c.ListAuth()
+	if err != nil {
+		return nil, err
+	}
+	log.Printf("live auths: %+v", liveAuthMap)
+
+	// Creat a mapping of configured auth methods, which we append to as we go,
+	// so we can disable those that are missing at the end
+	configuredAuthMap := make(map[string]*vaultApi.AuthMount)
+
+	return &FileHandler{
+		client: c,
+		rootPath: rootPath,
+		liveAuthMap: &liveAuthMap,
+		configuredAuthMap: &configuredAuthMap,
+	}, nil
+}
+
+func (fh *FileHandler) readFile(path string) (string, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		err = fmt.Errorf("error opening file: %s", err)
@@ -34,7 +61,7 @@ func ReadFile(path string) (string, error) {
 
 }
 
-func walkFile(path string, f os.FileInfo, err error) error {
+func (fh *FileHandler) walkFile(path string, f os.FileInfo, err error) error {
 	if err != nil {
 		return fmt.Errorf("error reading %s: %s", path, err)
 	}
@@ -49,69 +76,52 @@ func walkFile(path string, f os.FileInfo, err error) error {
 	return nil
 }
 
-func PutPoliciesFromDir(path string) error {
-	err := filepath.Walk(path, walkFile)
+func (fh *FileHandler) PutPoliciesFromDir(path string) error {
+	err := filepath.Walk(path, fh.walkFile)
 	return err
 }
 
-func EnsureAuth(c VaultsmithClient) error {
-	// Ensure that all our auth types are enabled and have the correct configuration
-	authListLive, err := c.ListAuth()
-	if err != nil {
-		return err
-	}
-	log.Printf("live auths: %+v", authListLive)
-
-	// TODO hard-coded hack until we figure out how to structure the configuration
-	s, err := ReadFile("example/sys/auth/approle.json")
-
-	var enableOpts vaultApi.EnableAuthOptions
-	err = json.Unmarshal([]byte(s), &enableOpts)
-	if err != nil {
-		return err
-	}
-
+// Ensure that this auth type is enabled and has the correct configuration
+func (fh *FileHandler) EnsureAuth(path string, enableOpts vaultApi.EnableAuthOptions) error {
 	// we need to convert to AuthConfigOutput in order to compare with existing config
 	var enableOptsAuthConfigOutput vaultApi.AuthConfigOutput
-	enableOptsAuthConfigOutput, err = ConvertAuthConfigInputToAuthConfigOutput(enableOpts.Config)
+	enableOptsAuthConfigOutput, err := fh.convertAuthConfigInputToAuthConfigOutput(enableOpts.Config)
 	if err != nil {
 		return err
 	}
 
-	var authListConfigured map[string]*vaultApi.AuthMount
-	authListConfigured = make(map[string]*vaultApi.AuthMount)
-	approle := vaultApi.AuthMount{
-		Type:   "approle",
+	authMount := vaultApi.AuthMount{
+		Type:   "authMount",
 		Config: enableOptsAuthConfigOutput,
 	}
+	(*fh.configuredAuthMap)[path] = &authMount
 
-	authListConfigured["approle"] = &approle
-
-	// Iterate over the configured auths and ensure they are enabled with the correct config
-	for k, authMount := range authListConfigured {
-		// find in live list
-		// append slash because the config from server includes it
-		path := k + "/"
-		if liveAuth, ok := authListLive[path]; ok {
-			if isConfigApplied(enableOpts.Config, liveAuth.Config) {
-				log.Printf("Configuration for role %s already applied\n", authMount.Type)
-				continue
-			}
+	path = path + "/"
+	if liveAuth, ok := (*fh.liveAuthMap)[path]; ok {
+		if fh.isConfigApplied(enableOpts.Config, liveAuth.Config) {
+			log.Printf("Configuration for role %s already applied\n", authMount.Type)
+			return nil
 		}
-		log.Printf("Enabling %s\n", authMount.Type)
-		c.EnableAuth(authMount.Type, &enableOpts)
 	}
+	log.Printf("Enabling %s\n", authMount.Type)
+	err = fh.client.EnableAuth(authMount.Type, &enableOpts)
+	if err != nil {
+		return fmt.Errorf("could not enable auth %s: %s", path, err)
+	}
+	return nil
+}
 
-	for k, authMount := range authListLive {
+func(fh *FileHandler) DisableUnconfiguredAuths() error {
+	for k, authMount := range *fh.liveAuthMap {
 		// delete entries not in configured list
 		path := strings.Trim(k, "/")
-		if _, ok := authListConfigured[path]; ok {
+		if _, ok := (*fh.configuredAuthMap)[path]; ok {
 			// present, do nothing
 		} else if authMount.Type == "token" {
 			// cannot be disabled, would give http 400 if attempted
 		} else {
 			log.Printf("Disabling auth type %s\n", authMount.Type)
-			err := c.DisableAuth(authMount.Type)
+			err := fh.client.DisableAuth(authMount.Type)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -121,13 +131,13 @@ func EnsureAuth(c VaultsmithClient) error {
 }
 
 // return true if the localConfig is reflected in remoteConfig, else false
-func isConfigApplied(localConfig vaultApi.AuthConfigInput, remoteConfig vaultApi.AuthConfigOutput) bool {
+func (fh *FileHandler) isConfigApplied(localConfig vaultApi.AuthConfigInput, remoteConfig vaultApi.AuthConfigOutput) bool {
 	/*
 		AuthConfigInput uses string for int types, so we need to re-cast them in order to do a
 		comparison
 	*/
 
-	converted, err := ConvertAuthConfigInputToAuthConfigOutput(localConfig)
+	converted, err := fh.convertAuthConfigInputToAuthConfigOutput(localConfig)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -139,3 +149,41 @@ func isConfigApplied(localConfig vaultApi.AuthConfigInput, remoteConfig vaultApi
 	}
 }
 
+// convert AuthConfigInput type to AuthConfigOutput type
+func (fh *FileHandler) convertAuthConfigInputToAuthConfigOutput(input vaultApi.AuthConfigInput) (vaultApi.AuthConfigOutput, error) {
+	var output vaultApi.AuthConfigOutput
+	var err error
+
+	// These need converting to the below
+	var DefaultLeaseTTL int // was string
+	DefaultLeaseTTL, err = strconv.Atoi(input.DefaultLeaseTTL)
+	if err != nil {
+		if input.DefaultLeaseTTL == "" {
+			DefaultLeaseTTL = 0
+		} else {
+			return output, fmt.Errorf("could not convert DefaultLeaseTTL to int: %s", err)
+		}
+	}
+
+	var MaxLeaseTTL int // was string
+	MaxLeaseTTL, err = strconv.Atoi(input.MaxLeaseTTL)
+	if err != nil {
+		if input.MaxLeaseTTL == "" {
+			MaxLeaseTTL = 0
+		} else {
+			return output, fmt.Errorf("could not convert MaxLeaseTTL to int: %s", err)
+		}
+	}
+
+	output = vaultApi.AuthConfigOutput{
+		DefaultLeaseTTL:           DefaultLeaseTTL,
+		MaxLeaseTTL:               MaxLeaseTTL,
+		PluginName:                input.PluginName,
+		AuditNonHMACRequestKeys:   input.AuditNonHMACRequestKeys,
+		AuditNonHMACResponseKeys:  input.AuditNonHMACResponseKeys,
+		ListingVisibility:         input.ListingVisibility,
+		PassthroughRequestHeaders: input.PassthroughRequestHeaders,
+	}
+
+	return output, nil
+}

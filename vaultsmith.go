@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-
 	"strings"
 
 	"github.com/starlingbank/vaultsmith/internal"
@@ -75,14 +74,11 @@ func Run(c internal.VaultsmithClient, config *VaultsmithConfig) error {
 		return fmt.Errorf("failed authenticating with Vault: %s", err)
 	}
 
-	err = internal.EnsureAuth(c)
+	fh, err := internal.NewFileHandler(c, "example")
+
+	err = fh.PutPoliciesFromDir("./example")
 	if err != nil {
 		log.Fatal(err)
-	}
-
-	internal.PutPoliciesFromDir("./example")
-	if err != nil {
-		log.Fatal(fmt.Sprintf("Error writing policy: %s", err))
 	}
 
 	log.Println("Success")
