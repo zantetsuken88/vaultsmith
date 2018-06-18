@@ -72,21 +72,21 @@ func (fh *FileHandler) walkFile(path string, f os.FileInfo, err error) error {
 
 	dir, file := filepath.Split(path)
 	policyPath := strings.Join(strings.Split(dir, "/")[1:], "/")
-	fmt.Printf("path: %s, file: %s\n", policyPath, file)
+	//fmt.Printf("path: %s, file: %s\n", policyPath, file)
+	if ! strings.HasPrefix(policyPath, "sys/auth") {
+		log.Printf("%s not handled yet\n", path)
+		return nil
+	}
 
+	log.Printf("reading %s\n", path)
 	fileContents, err := fh.readFile(path)
 	var enableOpts vaultApi.EnableAuthOptions
 	err = json.Unmarshal([]byte(fileContents), &enableOpts)
 	if err != nil {
-		return err
+		return fmt.Errorf("could not parse json: %s", err)
 	}
 
-	if strings.HasPrefix(policyPath, "sys/auth") {
-		log.Printf("handling %s\n", dir)
-		fh.EnsureAuth(strings.Split(file, ".")[0], enableOpts)
-	} else {
-		log.Printf("%s not handled yet\n", dir)
-	}
+	fh.EnsureAuth(strings.Split(file, ".")[0], enableOpts)
 
 	return nil
 }
@@ -114,7 +114,7 @@ func (fh *FileHandler) EnsureAuth(path string, enableOpts vaultApi.EnableAuthOpt
 	path = path + "/"
 	if liveAuth, ok := (*fh.liveAuthMap)[path]; ok {
 		if fh.isConfigApplied(enableOpts.Config, liveAuth.Config) {
-			log.Printf("Configuration for role %s already applied\n", authMount.Type)
+			log.Printf("Configuration for authMount %s already applied\n", enableOpts.Type)
 			return nil
 		}
 	}
