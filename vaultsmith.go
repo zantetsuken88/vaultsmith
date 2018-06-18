@@ -12,7 +12,6 @@ import (
 	vaultApi "github.com/hashicorp/vault/api"
 	"encoding/json"
 	"reflect"
-	"strconv"
 )
 
 var flags = flag.NewFlagSet("Vaultsmith", flag.ExitOnError)
@@ -74,71 +73,45 @@ func NewVaultsmithConfig() (*VaultsmithConfig, error) {
 
 func EnsureAuth(c internal.VaultsmithClient) error {
 	// Ensure that all our auth types are enabled and have the correct configuration
-	authList, err := c.ListAuth()
+	authListLive, err := c.ListAuth()
 	if err != nil {
 		return err
 	}
-	log.Println(authList)
+	log.Println(authListLive)
+
+	var authListConfigured map[string]*vaultApi.AuthMount
+	authListConfigured = make(map[string]*vaultApi.AuthMount)
+	approle := vaultApi.AuthMount{Type: "approle"}
+
+	authListConfigured["approle"] = &approle
 
 	// TODO hard-coded hack until we figure out how to structure the configuration
 	s, err := internal.ReadFile("example/sys/auth/approle.json")
 	log.Println(s)
-	approleOpts := vaultApi.EnableAuthOptions{}
+
+	var approleOpts vaultApi.EnableAuthOptions
 	err = json.Unmarshal([]byte(s), &approleOpts)
 	if err != nil {
 		return err
 	}
 
-	for _, authMount := range authList {
+	for _, authMount := range authListConfigured {
+		// find in live list
 		if authMount.Type != "approle" {
 			// temp hack as approle hard-coded above
 			continue
 		}
 		log.Println(authMount.Type)
 		log.Println(authMount.Config)
-		isConfigApplied(approleOpts.Config, authMount.Config)
+		if isConfigApplied(approleOpts.Config, authMount.Config) {
+			log.Printf("Configuration for role %s already applied\n", "approle")
+		} else {
+			log.Printf("Enabling %s\n", "approle")
+			c.EnableAuth("approle", &approleOpts)
+		}
 	}
 
 	return nil
-}
-
-// convert AuthConfigInput type to AuthConfigOutput type
-func convertAuthConfigInputToAuthConfigOutput(input vaultApi.AuthConfigInput) (vaultApi.AuthConfigOutput, error) {
-	var output vaultApi.AuthConfigOutput
-	var err error
-
-	// These need converting to the below
-	var DefaultLeaseTTL int // was string
-	DefaultLeaseTTL, err = strconv.Atoi(input.DefaultLeaseTTL)
-	if err != nil {
-		if input.DefaultLeaseTTL == "" {
-			DefaultLeaseTTL = 0
-		} else {
-			return output, fmt.Errorf("could not convert DefaultLeaseTTL to int: %s", err)
-		}
-	}
-
-	var MaxLeaseTTL int // was string
-	MaxLeaseTTL, err = strconv.Atoi(input.MaxLeaseTTL)
-	if err != nil {
-		if input.MaxLeaseTTL == "" {
-			MaxLeaseTTL = 0
-		} else {
-			return output, fmt.Errorf("could not convert MaxLeaseTTL to int: %s", err)
-		}
-	}
-
-	output = vaultApi.AuthConfigOutput{
-		DefaultLeaseTTL: DefaultLeaseTTL,
-		MaxLeaseTTL: MaxLeaseTTL,
-		PluginName: input.PluginName,
-		AuditNonHMACRequestKeys: input.AuditNonHMACRequestKeys,
-		AuditNonHMACResponseKeys:input.AuditNonHMACResponseKeys,
-		ListingVisibility: input.ListingVisibility,
-		PassthroughRequestHeaders: input.PassthroughRequestHeaders,
-	}
-
-	return output, nil
 }
 
 // return true if the localConfig is reflected in remoteConfig, else false
@@ -148,7 +121,7 @@ func isConfigApplied(localConfig vaultApi.AuthConfigInput, remoteConfig vaultApi
 		comparison
 	*/
 
-	converted, err := convertAuthConfigInputToAuthConfigOutput(localConfig)
+	converted, err := internal.ConvertAuthConfigInputToAuthConfigOutput(localConfig)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -181,6 +154,7 @@ func Run(c internal.VaultsmithClient, config *VaultsmithConfig) error {
 	//if err != nil {
 	//	log.Fatal(fmt.Sprintf("Error writing policy: %s", err))
 	//}
+
 	log.Println("Success")
 	return nil
 
