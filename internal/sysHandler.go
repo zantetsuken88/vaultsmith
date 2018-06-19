@@ -13,6 +13,11 @@ import (
 	"encoding/json"
 )
 
+/*
+	SysHandler handles the creation/enabling of auth methods and policies, described in the
+	configuration under sys
+ */
+
 type SysHandler struct {
 	client 				VaultsmithClient
 	rootPath 			string
@@ -20,18 +25,18 @@ type SysHandler struct {
 	configuredAuthMap 	*map[string]*vaultApi.AuthMount
 }
 
-func NewSysHandler(c VaultsmithClient, rootPath string) (*SysHandler, error) {
+func NewSysHandler(c VaultsmithClient, rootPath string) (SysHandler, error) {
 	// Build a map of currently active auth methods, so walkFile() can reference it
 	liveAuthMap, err := c.ListAuth()
 	if err != nil {
-		return nil, err
+		return SysHandler{}, err
 	}
 
-	// Creat a mapping of configured auth methods, which we append to as we go,
+	// Create a mapping of configured auth methods, which we append to as we go,
 	// so we can disable those that are missing at the end
 	configuredAuthMap := make(map[string]*vaultApi.AuthMount)
 
-	return &SysHandler{
+	return SysHandler{
 		client: c,
 		rootPath: rootPath,
 		liveAuthMap: &liveAuthMap,

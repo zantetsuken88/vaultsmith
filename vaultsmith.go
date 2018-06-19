@@ -17,6 +17,11 @@ type VaultsmithConfig struct {
 	vaultRole string
 }
 
+// A PathHandler takes a path and applies the policies within
+type PathHandler interface {
+	PutPoliciesFromDir(path string) error
+}
+
 func init() {
 	flags.StringVar(
 		&vaultRole, "role", "", "The Vault role to authenticate as",
@@ -74,6 +79,11 @@ func Run(c internal.VaultsmithClient, config *VaultsmithConfig) error {
 	}
 
 	sh, err := internal.NewSysHandler(c, "example")
+
+	var handlerMap = map[string]PathHandler {
+		"sys/auth": &sh,
+	}
+	log.Printf("%+v", handlerMap)
 
 	err = sh.PutPoliciesFromDir("./example")
 	if err != nil {
