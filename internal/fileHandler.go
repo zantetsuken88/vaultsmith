@@ -102,7 +102,7 @@ func (fh *FileHandler) PutPoliciesFromDir(path string) error {
 func (fh *FileHandler) EnsureAuth(path string, enableOpts vaultApi.EnableAuthOptions) error {
 	// we need to convert to AuthConfigOutput in order to compare with existing config
 	var enableOptsAuthConfigOutput vaultApi.AuthConfigOutput
-	enableOptsAuthConfigOutput, err := fh.convertAuthConfigInputToAuthConfigOutput(enableOpts.Config)
+	enableOptsAuthConfigOutput, err := ConvertAuthConfigInputToAuthConfigOutput(enableOpts.Config)
 	if err != nil {
 		return err
 	}
@@ -155,7 +155,7 @@ func (fh *FileHandler) isConfigApplied(localConfig vaultApi.AuthConfigInput, rem
 		comparison
 	*/
 
-	converted, err := fh.convertAuthConfigInputToAuthConfigOutput(localConfig)
+	converted, err := ConvertAuthConfigInputToAuthConfigOutput(localConfig)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -11,7 +11,7 @@ import (
 // A potential problem with this is that the transformation doesn't use the same code that Vault
 // uses internally, so bugs are possible; but ParseDuration is pretty standard (and vault
 // does use this same method)
-func (fh *FileHandler) convertAuthConfigInputToAuthConfigOutput(input api.AuthConfigInput) (api.AuthConfigOutput, error) {
+func ConvertAuthConfigInputToAuthConfigOutput(input api.AuthConfigInput) (api.AuthConfigOutput, error) {
 	var output api.AuthConfigOutput
 	var dur time.Duration
 	var err error
@@ -51,7 +51,7 @@ func (fh *FileHandler) convertAuthConfigInputToAuthConfigOutput(input api.AuthCo
 
 // convert AuthConfigOutput type to AuthConfigInput type
 // this is much safer than the reverse, as the TTL ints are valid inputs when converted to strings
-func (fh *FileHandler) convertAuthConfigOutputToAuthConfigInput(input api.AuthConfigOutput) (api.AuthConfigInput, error) {
+func ConvertAuthConfigOutputToAuthConfigInput(input api.AuthConfigOutput) (api.AuthConfigInput, error) {
 	// NOTE: Doesn't currently handle time strings such as "5m30s", use ints that can be cast as strings
 	var output api.AuthConfigInput
 
