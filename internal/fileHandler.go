@@ -12,6 +12,7 @@ import (
 	"strconv"
 	vaultApi "github.com/hashicorp/vault/api"
 	"encoding/json"
+	"time"
 )
 
 type FileHandler struct {
@@ -165,35 +166,28 @@ func (fh *FileHandler) isConfigApplied(localConfig vaultApi.AuthConfigInput, rem
 }
 
 // convert AuthConfigInput type to AuthConfigOutput type
-// TODO: this function is problematic
-// the problem with this is that the transformation doesn't use the same code that Vault uses
-// to store its configuration, so bugs are inevitable. should be possible to re-use vault's internal
-// functions to manage this
+// A potential problem with this is that the transformation doesn't use the same code that Vault
+// uses internally, so bugs are possible; but ParseDuration is pretty standard (and vault
+// does use this same method)
 func (fh *FileHandler) convertAuthConfigInputToAuthConfigOutput(input vaultApi.AuthConfigInput) (vaultApi.AuthConfigOutput, error) {
-	// NOTE: Doesn't currently handle time strings such as "5m30s", use ints that can be cast as strings
 	var output vaultApi.AuthConfigOutput
+	var dur time.Duration
 	var err error
 
 	// These need converting to the below
 	var DefaultLeaseTTL int // was string
-	DefaultLeaseTTL, err = strconv.Atoi(input.DefaultLeaseTTL)
+	dur, err = time.ParseDuration(input.DefaultLeaseTTL)
 	if err != nil {
-		if input.DefaultLeaseTTL == "" {
-			DefaultLeaseTTL = 0
-		} else {
-			return output, fmt.Errorf("could not convert DefaultLeaseTTL to int: %s", err)
-		}
+		return output, fmt.Errorf("could not parse DefaultLeaseTTL value %s as seconds: %s", input.DefaultLeaseTTL, err)
 	}
+	DefaultLeaseTTL = int(dur.Seconds())
 
 	var MaxLeaseTTL int // was string
-	MaxLeaseTTL, err = strconv.Atoi(input.MaxLeaseTTL)
+	dur, err = time.ParseDuration(input.MaxLeaseTTL)
 	if err != nil {
-		if input.MaxLeaseTTL == "" {
-			MaxLeaseTTL = 0
-		} else {
-			return output, fmt.Errorf("could not convert MaxLeaseTTL to int: %s", err)
-		}
+		return output, fmt.Errorf("could not parse MaxLeaseTTL value %s as seconds: %s", input.MaxLeaseTTL, err)
 	}
+	MaxLeaseTTL = int(dur.Seconds())
 
 	output = vaultApi.AuthConfigOutput{
 		DefaultLeaseTTL:           DefaultLeaseTTL,
