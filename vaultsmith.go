@@ -11,9 +11,11 @@ import (
 )
 
 var flags = flag.NewFlagSet("Vaultsmith", flag.ExitOnError)
+var configDir string
 var vaultRole string
 
 type VaultsmithConfig struct {
+	configDir string
 	vaultRole string
 }
 
@@ -23,6 +25,9 @@ type PathHandler interface {
 }
 
 func init() {
+	flags.StringVar(
+		&configDir, "configDir", "", "The root directory of the configuration",
+	)
 	flags.StringVar(
 		&vaultRole, "role", "", "The Vault role to authenticate as",
 	)
@@ -68,6 +73,7 @@ func main() {
 
 func NewVaultsmithConfig() (*VaultsmithConfig, error) {
 	return &VaultsmithConfig{
+		configDir: configDir,
 		vaultRole: vaultRole,
 	}, nil
 }
@@ -78,14 +84,14 @@ func Run(c internal.VaultsmithClient, config *VaultsmithConfig) error {
 		return fmt.Errorf("failed authenticating with Vault: %s", err)
 	}
 
-	sh, err := internal.NewSysHandler(c, "example")
+	sysHandler, err := internal.NewSysHandler(c, "example/sys")
 
 	var handlerMap = map[string]PathHandler {
-		"sys/auth": &sh,
+		"sys/auth": &sysHandler,
 	}
 	log.Printf("%+v", handlerMap)
 
-	err = sh.PutPoliciesFromDir("./example")
+	err = sysHandler.PutPoliciesFromDir("./example")
 	if err != nil {
 		log.Fatal(err)
 	}
