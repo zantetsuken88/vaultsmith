@@ -28,7 +28,6 @@ func NewFileHandler(c VaultsmithClient, rootPath string) (*FileHandler, error) {
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("live auths: %+v", liveAuthMap)
 
 	// Creat a mapping of configured auth methods, which we append to as we go,
 	// so we can disable those that are missing at the end
@@ -75,11 +74,11 @@ func (fh *FileHandler) walkFile(path string, f os.FileInfo, err error) error {
 	policyPath := strings.Join(strings.Split(dir, "/")[1:], "/")
 	//fmt.Printf("path: %s, file: %s\n", policyPath, file)
 	if ! strings.HasPrefix(policyPath, "sys/auth") {
-		log.Printf("%s not handled yet\n", path)
+		log.Printf("File %s can not be handled yet\n", path)
 		return nil
 	}
 
-	log.Printf("reading %s\n", path)
+	log.Printf("Reading file %s\n", path)
 	fileContents, err := fh.readFile(path)
 	var enableOpts vaultApi.EnableAuthOptions
 	err = json.Unmarshal([]byte(fileContents), &enableOpts)
@@ -87,13 +86,17 @@ func (fh *FileHandler) walkFile(path string, f os.FileInfo, err error) error {
 		return fmt.Errorf("could not parse json: %s", err)
 	}
 
-	fh.EnsureAuth(strings.Split(file, ".")[0], enableOpts)
+	err = fh.EnsureAuth(strings.Split(file, ".")[0], enableOpts)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	return nil
 }
 
 func (fh *FileHandler) PutPoliciesFromDir(path string) error {
 	err := filepath.Walk(path, fh.walkFile)
+	err = fh.DisableUnconfiguredAuths()
 	return err
 }
 
@@ -177,18 +180,23 @@ func (fh *FileHandler) convertAuthConfigInputToAuthConfigOutput(input vaultApi.A
 
 	// These need converting to the below
 	var DefaultLeaseTTL int // was string
-	dur, err = time.ParseDuration(input.DefaultLeaseTTL)
-	if err != nil {
-		return output, fmt.Errorf("could not parse DefaultLeaseTTL value %s as seconds: %s", input.DefaultLeaseTTL, err)
+
+	if input.DefaultLeaseTTL != "" {
+		dur, err = time.ParseDuration(input.DefaultLeaseTTL)
+		if err != nil {
+			return output, fmt.Errorf("could not parse DefaultLeaseTTL value %s as seconds: %s", input.DefaultLeaseTTL, err)
+		}
+		DefaultLeaseTTL = int(dur.Seconds())
 	}
-	DefaultLeaseTTL = int(dur.Seconds())
 
 	var MaxLeaseTTL int // was string
-	dur, err = time.ParseDuration(input.MaxLeaseTTL)
-	if err != nil {
-		return output, fmt.Errorf("could not parse MaxLeaseTTL value %s as seconds: %s", input.MaxLeaseTTL, err)
+	if input.MaxLeaseTTL != "" {
+		dur, err = time.ParseDuration(input.MaxLeaseTTL)
+		if err != nil {
+			return output, fmt.Errorf("could not parse MaxLeaseTTL value %s as seconds: %s", input.MaxLeaseTTL, err)
+		}
+		MaxLeaseTTL = int(dur.Seconds())
 	}
-	MaxLeaseTTL = int(dur.Seconds())
 
 	output = vaultApi.AuthConfigOutput{
 		DefaultLeaseTTL:           DefaultLeaseTTL,
