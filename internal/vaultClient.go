@@ -37,7 +37,6 @@ type VaultClient struct {
 }
 
 func NewVaultClient() (*VaultClient, error) {
-
 	config := vaultApi.Config{
 		HttpClient: &http.Client{
 			Transport: &http.Transport{

@@ -1,41 +1,24 @@
 package internal
 
 import (
-	vaultApi "github.com/hashicorp/vault/api"
 	"github.com/stretchr/testify/suite"
 	"testing"
+	"log"
+	"github.com/starlingbank/vaultsmith/mocks"
 )
-
-type MockVaultsmithClient struct {}
-
-func (*MockVaultsmithClient) Authenticate(string) error {
-	return nil
-}
-
-func (*MockVaultsmithClient) DisableAuth(string) error {
-	return nil
-}
-
-func (*MockVaultsmithClient) EnableAuth(path string, options *vaultApi.EnableAuthOptions) error {
-	return nil
-}
-
-func (*MockVaultsmithClient) ListAuth() (map[string]*vaultApi.AuthMount, error) {
-	rv := make(map[string]*vaultApi.AuthMount)
-	return rv, nil
-}
-
-func (*MockVaultsmithClient) PutPolicy(string, string) error {
-	return nil
-}
 
 type VaultsmithClientTestSuite struct {
 	suite.Suite
+	sysHandler SysHandler
 }
 
 func (suite *VaultsmithClientTestSuite) SetupTest() {
-	c := MockVaultsmithClient{}
-	suite.VaultsmithClient, err = NewSysHandler(c, "")
+	c := mocks.MockVaultsmithClient{}
+	sh, err := NewSysHandler(&c, "")
+	if err != nil {
+		log.Fatalf("could not create dummy SysHandler: %s", err)
+	}
+	suite.sysHandler = sh
 }
 
 func (suite *VaultsmithClientTestSuite) TearDownTest() {
