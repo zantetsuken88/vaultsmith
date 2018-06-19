@@ -14,7 +14,8 @@ type FileHandlerTestSuite struct {
 }
 
 func (suite *FileHandlerTestSuite) SetupTest() {
-
+	c := VaultsmithClient{}
+	suite.SysHandler = NewSysHandler()
 }
 
 func (suite *FileHandlerTestSuite) TearDownTest() {
