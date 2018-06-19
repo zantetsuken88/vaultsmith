@@ -67,16 +67,15 @@ func NewVaultsmithConfig() (*VaultsmithConfig, error) {
 	}, nil
 }
 
-
 func Run(c internal.VaultsmithClient, config *VaultsmithConfig) error {
 	err := c.Authenticate(config.vaultRole)
 	if err != nil {
 		return fmt.Errorf("failed authenticating with Vault: %s", err)
 	}
 
-	fh, err := internal.NewFileHandler(c, "example")
+	sh, err := internal.NewSysHandler(c, "example")
 
-	err = fh.PutPoliciesFromDir("./example")
+	err = sh.PutPoliciesFromDir("./example")
 	if err != nil {
 		log.Fatal(err)
 	}

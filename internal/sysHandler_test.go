@@ -22,7 +22,7 @@ func (suite *FileHandlerTestSuite) TearDownTest() {
 }
 
 func (suite *FileHandlerTestSuite) TestReadFile() {
-	file, _ := ioutil.TempFile(".", "test-FileHandler-")
+	file, _ := ioutil.TempFile(".", "test-SysHandler-")
 	_ = ioutil.WriteFile(file.Name(), []byte("foo"), os.FileMode(int(0664)))
 	defer os.Remove(file.Name())
 	data, err := readFile(file.Name())
