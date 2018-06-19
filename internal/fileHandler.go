@@ -107,13 +107,14 @@ func (fh *FileHandler) EnsureAuth(path string, enableOpts vaultApi.EnableAuthOpt
 	}
 
 	authMount := vaultApi.AuthMount{
-		Type:   "authMount",
+		Type:   enableOpts.Type,
 		Config: enableOptsAuthConfigOutput,
 	}
 	(*fh.configuredAuthMap)[path] = &authMount
 
-	path = path + "/"
+	path = path + "/" // vault appends a slash to paths
 	if liveAuth, ok := (*fh.liveAuthMap)[path]; ok {
+		// If this path is present in our live config, we may not need to enable
 		if fh.isConfigApplied(enableOpts.Config, liveAuth.Config) {
 			log.Printf("Configuration for authMount %s already applied\n", enableOpts.Type)
 			return nil
@@ -128,13 +129,14 @@ func (fh *FileHandler) EnsureAuth(path string, enableOpts vaultApi.EnableAuthOpt
 }
 
 func(fh *FileHandler) DisableUnconfiguredAuths() error {
+	// delete entries not in configured list
 	for k, authMount := range *fh.liveAuthMap {
-		// delete entries not in configured list
-		path := strings.Trim(k, "/")
+		path := strings.Trim(k, "/") // vault appends a slash to paths
 		if _, ok := (*fh.configuredAuthMap)[path]; ok {
 			// present, do nothing
 		} else if authMount.Type == "token" {
 			// cannot be disabled, would give http 400 if attempted
+			continue
 		} else {
 			log.Printf("Disabling auth type %s\n", authMount.Type)
 			err := fh.client.DisableAuth(authMount.Type)
