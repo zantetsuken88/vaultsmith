@@ -13,25 +13,30 @@ import (
 	"encoding/json"
 )
 
-type FileHandler struct {
+/*
+	SysHandler handles the creation/enabling of auth methods and policies, described in the
+	configuration under sys
+ */
+
+type SysHandler struct {
 	client 				VaultsmithClient
 	rootPath 			string
 	liveAuthMap 		*map[string]*vaultApi.AuthMount
 	configuredAuthMap 	*map[string]*vaultApi.AuthMount
 }
 
-func NewFileHandler(c VaultsmithClient, rootPath string) (*FileHandler, error) {
+func NewSysHandler(c VaultsmithClient, rootPath string) (SysHandler, error) {
 	// Build a map of currently active auth methods, so walkFile() can reference it
 	liveAuthMap, err := c.ListAuth()
 	if err != nil {
-		return nil, err
+		return SysHandler{}, err
 	}
 
-	// Creat a mapping of configured auth methods, which we append to as we go,
+	// Create a mapping of configured auth methods, which we append to as we go,
 	// so we can disable those that are missing at the end
 	configuredAuthMap := make(map[string]*vaultApi.AuthMount)
 
-	return &FileHandler{
+	return SysHandler{
 		client: c,
 		rootPath: rootPath,
 		liveAuthMap: &liveAuthMap,
@@ -39,7 +44,7 @@ func NewFileHandler(c VaultsmithClient, rootPath string) (*FileHandler, error) {
 	}, nil
 }
 
-func (fh *FileHandler) readFile(path string) (string, error) {
+func (sh *SysHandler) readFile(path string) (string, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		err = fmt.Errorf("error opening file: %s", err)
@@ -60,7 +65,7 @@ func (fh *FileHandler) readFile(path string) (string, error) {
 
 }
 
-func (fh *FileHandler) walkFile(path string, f os.FileInfo, err error) error {
+func (sh *SysHandler) walkFile(path string, f os.FileInfo, err error) error {
 	if err != nil {
 		return fmt.Errorf("error reading %s: %s", path, err)
 	}
@@ -77,14 +82,14 @@ func (fh *FileHandler) walkFile(path string, f os.FileInfo, err error) error {
 	}
 
 	log.Printf("Reading file %s\n", path)
-	fileContents, err := fh.readFile(path)
+	fileContents, err := sh.readFile(path)
 	var enableOpts vaultApi.EnableAuthOptions
 	err = json.Unmarshal([]byte(fileContents), &enableOpts)
 	if err != nil {
 		return fmt.Errorf("could not parse json: %s", err)
 	}
 
-	err = fh.EnsureAuth(strings.Split(file, ".")[0], enableOpts)
+	err = sh.EnsureAuth(strings.Split(file, ".")[0], enableOpts)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -92,14 +97,14 @@ func (fh *FileHandler) walkFile(path string, f os.FileInfo, err error) error {
 	return nil
 }
 
-func (fh *FileHandler) PutPoliciesFromDir(path string) error {
-	err := filepath.Walk(path, fh.walkFile)
-	err = fh.DisableUnconfiguredAuths()
+func (sh *SysHandler) PutPoliciesFromDir(path string) error {
+	err := filepath.Walk(path, sh.walkFile)
+	err = sh.DisableUnconfiguredAuths()
 	return err
 }
 
 // Ensure that this auth type is enabled and has the correct configuration
-func (fh *FileHandler) EnsureAuth(path string, enableOpts vaultApi.EnableAuthOptions) error {
+func (sh *SysHandler) EnsureAuth(path string, enableOpts vaultApi.EnableAuthOptions) error {
 	// we need to convert to AuthConfigOutput in order to compare with existing config
 	var enableOptsAuthConfigOutput vaultApi.AuthConfigOutput
 	enableOptsAuthConfigOutput, err := ConvertAuthConfigInputToAuthConfigOutput(enableOpts.Config)
@@ -111,35 +116,35 @@ func (fh *FileHandler) EnsureAuth(path string, enableOpts vaultApi.EnableAuthOpt
 		Type:   enableOpts.Type,
 		Config: enableOptsAuthConfigOutput,
 	}
-	(*fh.configuredAuthMap)[path] = &authMount
+	(*sh.configuredAuthMap)[path] = &authMount
 
 	path = path + "/" // vault appends a slash to paths
-	if liveAuth, ok := (*fh.liveAuthMap)[path]; ok {
+	if liveAuth, ok := (*sh.liveAuthMap)[path]; ok {
 		// If this path is present in our live config, we may not need to enable
-		if fh.isConfigApplied(enableOpts.Config, liveAuth.Config) {
+		if sh.isConfigApplied(enableOpts.Config, liveAuth.Config) {
 			log.Printf("Configuration for authMount %s already applied\n", enableOpts.Type)
 			return nil
 		}
 	}
 	log.Printf("Enabling auth type %s\n", authMount.Type)
-	err = fh.client.EnableAuth(path, &enableOpts)
+	err = sh.client.EnableAuth(path, &enableOpts)
 	if err != nil {
 		return fmt.Errorf("could not enable auth %s: %s", path, err)
 	}
 	return nil
 }
 
-func(fh *FileHandler) DisableUnconfiguredAuths() error {
+func(sh *SysHandler) DisableUnconfiguredAuths() error {
 	// delete entries not in configured list
-	for k, authMount := range *fh.liveAuthMap {
+	for k, authMount := range *sh.liveAuthMap {
 		path := strings.Trim(k, "/") // vault appends a slash to paths
-		if _, ok := (*fh.configuredAuthMap)[path]; ok {
+		if _, ok := (*sh.configuredAuthMap)[path]; ok {
 			continue  // present, do nothing
 		} else if authMount.Type == "token" {
 			continue  // cannot be disabled, would give http 400 if attempted
 		} else {
 			log.Printf("Disabling auth type %s\n", authMount.Type)
-			err := fh.client.DisableAuth(authMount.Type)
+			err := sh.client.DisableAuth(authMount.Type)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -149,7 +154,7 @@ func(fh *FileHandler) DisableUnconfiguredAuths() error {
 }
 
 // return true if the localConfig is reflected in remoteConfig, else false
-func (fh *FileHandler) isConfigApplied(localConfig vaultApi.AuthConfigInput, remoteConfig vaultApi.AuthConfigOutput) bool {
+func (sh *SysHandler) isConfigApplied(localConfig vaultApi.AuthConfigInput, remoteConfig vaultApi.AuthConfigOutput) bool {
 	/*
 		AuthConfigInput uses string for int types, so we need to re-cast them in order to do a
 		comparison
